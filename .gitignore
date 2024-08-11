@@ -2,3 +2,5 @@ venv
 .env 
 dataset
 __pycache__
+Dockerfile
+.dockerignore

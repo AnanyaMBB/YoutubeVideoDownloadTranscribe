@@ -14,6 +14,8 @@ import redis
 
 chrome_options = Options()
 chrome_options.add_argument("--headless=new")
+chrome_options.add_argument('--no-sandbox')
+chrome_options.add_argument('--disable-dev-shm-usage')
 
 directory = os.getcwd()
 redisClient = redis.Redis(host='localhost', port=6379, db=0)
@@ -66,7 +68,9 @@ try:
                         'Content-Encoding', 'identity')).decode('utf-8')
 
                     jsonParsed1 = json.loads(body)
+                    print(jsonParsed1)
                     videoID = jsonParsed1['videoDetails']['videoId']
+                    print(videoID)
                     username = jsonParsed1['microformat']['playerMicroformatRenderer']['ownerProfileUrl'].split(
                         '/')[-1]
 
@@ -76,6 +80,7 @@ try:
                         'Content-Encoding', 'identity')).decode('utf-8')
 
                     jsonParsed2 = json.loads(body)
+                    print(jsonParsed2)
                     try:
                         username = jsonParsed2['overlay']['reelPlayerOverlayRenderer']['reelPlayerHeaderSupportedRenderers'][
                             'reelPlayerHeaderRenderer']['channelTitleText']['runs'][0]['text']

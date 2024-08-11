@@ -18,7 +18,7 @@ chrome_options.add_argument('--no-sandbox')
 chrome_options.add_argument('--disable-dev-shm-usage')
 
 directory = os.getcwd()
-redisClient = redis.Redis(host='localhost', port=6379, db=0)
+#redisClient = redis.Redis(host='localhost', port=6379, db=0)
 
 # proxy = {
 #     'https': '157.230.188.193:3128'
@@ -86,14 +86,17 @@ try:
                             'reelPlayerHeaderRenderer']['channelTitleText']['runs'][0]['text']
                         videoID = jsonParsed1['videoDetails']['videoId']
                         
-                        
-                        if not redisClient.sismember('unique_youtube_video_ids', videoID): 
-                            with open(f'./dataset/unparsed_json/{videoID}-player.json', 'w', encoding='utf-8') as f:
+                        with open(f'./dataset/unparsed_json/{videoID}-player.json', 'w', encoding='utf-8') as f:
                                 f.write(body)
-                            with open(f'./dataset/unparsed_json/{videoID}-reel.json', 'w', encoding='utf-8') as f:
-                                f.write(body)
-                            redisClient.rpush('youtube_shorts', f"{videoID}")
-                            redisClient.sadd('unique_youtube_video_ids', videoID)
+                        with open(f'./dataset/unparsed_json/{videoID}-reel.json', 'w', encoding='utf-8') as f:
+                            f.write(body)
+                        # if not redisClient.sismember('unique_youtube_video_ids', videoID): 
+                        #     with open(f'./dataset/unparsed_json/{videoID}-player.json', 'w', encoding='utf-8') as f:
+                        #         f.write(body)
+                        #     with open(f'./dataset/unparsed_json/{videoID}-reel.json', 'w', encoding='utf-8') as f:
+                        #         f.write(body)
+                        #     redisClient.rpush('youtube_shorts', f"{videoID}")
+                        #     redisClient.sadd('unique_youtube_video_ids', videoID)
 
                     except: 
                         pass

@@ -77,10 +77,12 @@ try:
         for request in driver.requests:
             if request.response is not None:
                 if 'https://www.youtube.com/youtubei/v1/player' in request.url:
+                    print("FOUND")
                     body = decode(request.response.body, request.response.headers.get(
                         'Content-Encoding', 'identity')).decode('utf-8')
 
                     jsonParsed1 = json.loads(body)
+                    print(jsonParsed1)
                     videoID = jsonParsed1['videoDetails']['videoId']
                     print(videoID)
                     username = jsonParsed1['microformat']['playerMicroformatRenderer']['ownerProfileUrl'].split(
@@ -97,8 +99,9 @@ try:
                             'reelPlayerHeaderRenderer']['channelTitleText']['runs'][0]['text']
                         videoID = jsonParsed1['videoDetails']['videoId']
                         
+                        print("WRITING TO FILE")
                         with open(f'./dataset/unparsed_json/{videoID}-player.json', 'w', encoding='utf-8') as f:
-                                f.write(body)
+                            f.write(body)
                         with open(f'./dataset/unparsed_json/{videoID}-reel.json', 'w', encoding='utf-8') as f:
                             f.write(body)
                         # if not redisClient.sismember('unique_youtube_video_ids', videoID): 

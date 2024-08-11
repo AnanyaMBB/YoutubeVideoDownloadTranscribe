@@ -81,7 +81,6 @@ try:
                         'Content-Encoding', 'identity')).decode('utf-8')
 
                     jsonParsed1 = json.loads(body)
-                    print(jsonParsed1)
                     videoID = jsonParsed1['videoDetails']['videoId']
                     print(videoID)
                     username = jsonParsed1['microformat']['playerMicroformatRenderer']['ownerProfileUrl'].split(
@@ -93,7 +92,6 @@ try:
                         'Content-Encoding', 'identity')).decode('utf-8')
 
                     jsonParsed2 = json.loads(body)
-                    print(jsonParsed2)
                     try:
                         username = jsonParsed2['overlay']['reelPlayerOverlayRenderer']['reelPlayerHeaderSupportedRenderers'][
                             'reelPlayerHeaderRenderer']['channelTitleText']['runs'][0]['text']

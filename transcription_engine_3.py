@@ -16,7 +16,7 @@ load_dotenv()
 
 class TranscriptionEngine:
     def __init__(self):
-        # Load the transcription model from whisper
+        # Load the transcription model from Whisper
         if torch.cuda.is_available():
             print("++CUDA is available")
         else:
@@ -25,7 +25,7 @@ class TranscriptionEngine:
             "small.en", device="cuda" if torch.cuda.is_available() else "cpu"
         )
 
-        # Setup weaviate cloud connection
+        # Setup Weaviate cloud connection
         self.headers = {"X-OpenAI-Api-Key": os.getenv("OPENAI_API_KEY")}
         self.weaviateClient = weaviate.connect_to_wcs(
             cluster_url=os.getenv("WEAVIATE_CLUSTER_URL"),
@@ -39,7 +39,7 @@ class TranscriptionEngine:
         )
 
         try:
-            # If weaviate is properly connected, we proceed to other tasks
+            # If Weaviate is properly connected, we proceed to other tasks
             if self.weaviateClient.is_ready():
                 print("Successfully connected to Weaviate")
                 if not self.weaviateClient.collections.exists("ReelsTranscript"):
@@ -52,44 +52,56 @@ class TranscriptionEngine:
         except Exception as e:
             print(f"Error connecting to Weaviate: {e}")
             self.weaviateClient.close()
-        # finally:
-        #     self.weaviateClient.close()
 
     def transcribeAndStore(self, videoId):
-        self.weaviateClient = weaviate.connect_to_wcs(
-            cluster_url=os.getenv("WEAVIATE_CLUSTER_URL"),
-            auth_credentials=weaviate.auth.AuthApiKey(os.getenv("WEAVIATE_API_KEY")),
-            headers=self.headers,
-        )
+        max_retries = 5
+        retry_delay = 10  # seconds
+        retry_count = 0
 
-        # Setup Redis Client connection
-        self.redisClient = redis.Redis(
-            host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"), db=0
-        )
+        while retry_count < max_retries:
+            try:
+                # Reconnect to Weaviate
+                self.weaviateClient = weaviate.connect_to_wcs(
+                    cluster_url=os.getenv("WEAVIATE_CLUSTER_URL"),
+                    auth_credentials=weaviate.auth.AuthApiKey(os.getenv("WEAVIATE_API_KEY")),
+                    headers=self.headers,
+                )
 
-        try:
-            # If weaviate is properly connected, we proceed to other tasks
-            if self.weaviateClient.is_ready():
-                # print("*Successfully connected to Weaviate: Ready to write")
-                transcriptionResult = self.transcribe(videoId)
-                videoData = self.getVideoData(videoId)
-                # print("Transcription Result: ", transcriptionResult)
-                # print("Video Data: ", videoData)
-                self.add_to_weaviate(transcriptionResult, videoData)
-                if os.path.exists(f"./dataset/audio_files/{videoId}.mp3"):
-                    os.remove(f"./dataset/audio_files/{videoId}.mp3")
-                if os.path.exists(f"./dataset/unparsed_json/{videoId}-reel.json"):
-                    os.remove(f"./dataset/unparsed_json/{videoId}-reel.json")
-                if os.path.exists(f"./dataset/unparsed_json/{videoId}-player.json"):
-                    os.remove(f"./dataset/unparsed_json/{videoId}-player.json")
-                print("Transcription and storage complete", videoId)
-            else:
-                print("Weaviate is not ready")
+                # Setup Redis Client connection
+                self.redisClient = redis.Redis(
+                    host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"), db=0
+                )
 
-        except Exception as e:
-            print(f"Error connecting to Weaviate, writing failed: {e}")
-        finally:
-            self.weaviateClient.close()
+                # Check if Weaviate is ready
+                if self.weaviateClient.is_ready():
+                    transcriptionResult = self.transcribe(videoId)
+                    videoData = self.getVideoData(videoId)
+                    self.add_to_weaviate(transcriptionResult, videoData)
+
+                    # Clean up files
+                    if os.path.exists(f"./dataset/audio_files/{videoId}.mp3"):
+                        os.remove(f"./dataset/audio_files/{videoId}.mp3")
+                    if os.path.exists(f"./dataset/unparsed_json/{videoId}-reel.json"):
+                        os.remove(f"./dataset/unparsed_json/{videoId}-reel.json")
+                    if os.path.exists(f"./dataset/unparsed_json/{videoId}-player.json"):
+                        os.remove(f"./dataset/unparsed_json/{videoId}-player.json")
+                    print("Transcription and storage complete", videoId)
+                    break  # Exit the retry loop after successful operation
+                else:
+                    print("Weaviate is not ready")
+                    retry_count += 1
+                    time.sleep(retry_delay)
+
+            except Exception as e:
+                print(f"Error during transcription and storage: {e}")
+                retry_count += 1
+                time.sleep(retry_delay)
+
+            finally:
+                self.weaviateClient.close()
+
+        if retry_count >= max_retries:
+            print(f"Failed to transcribe and store after {max_retries} retries.")
 
     def getFilePath(self):
         videoId = self.redisClient.lpop("downloaded_youtube_shorts")
@@ -107,28 +119,6 @@ class TranscriptionEngine:
                 vectorizer_config=wvc.config.Configure.Vectorizer.text2vec_openai(
                     model="text-embedding-3-large", dimensions=1024
                 ),
-                # vectorizer_config = [
-                #     wvc.config.Configure.NamedVectors.text2vec_openai(
-                #         name="caption_vector",
-                #         source_properties=["caption"],
-                #         model="text-embedding-3-large",
-                #         dimensions=1024,
-                #             vector_index_config=wvc.config.Configure.VectorIndex.hnsw(
-                #             distance_metric=wvc.config.VectorDistances.COSINE,
-                #             quantizer=wvc.config.Configure.VectorIndex.Quantizer.bq(),
-                #         ),
-                #     ),
-                #     wvc.config.Configure.NamedVectors.text2vec_openai(
-                #         name="transcript_vector",
-                #         source_properties=["transcript"],
-                #         model="text-embedding-3-large",
-                #         dimensions=1024,
-                #         vector_index_config=wvc.config.Configure.VectorIndex.hnsw(
-                #             distance_metric=wvc.config.VectorDistances.COSINE,
-                #             quantizer=wvc.config.Configure.VectorIndex.Quantizer.bq(),
-                #         ),
-                #     ),
-                # ],
                 generative_config=wvc.config.Configure.Generative.openai(),
                 properties=[
                     wvc.config.Property(
@@ -213,8 +203,6 @@ class TranscriptionEngine:
                     "description": video_data["description"],
                 },
             )
-
-
         except Exception as e:
             print(f"Error adding to Weaviate: {e}")
 

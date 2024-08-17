@@ -11,6 +11,12 @@ import requests
 from hashlib import md5
 import yt_dlp
 import redis 
+from dotenv import load_dotenv
+
+import boto3
+from botocore.client import Config
+
+load_dotenv()
 
 chrome_options = Options()
 chrome_options.add_argument("--headless=new")
@@ -34,7 +40,13 @@ seleniumwire_options = {
 }
 
 directory = os.getcwd()
-#redisClient = redis.Redis(host='localhost', port=6379, db=0)
+redisClient = redis.Redis(host='localhost', port=6379, db=0)
+session = boto3.session.Session()
+client = session.client('s3',
+                        region_name=os.getenv("SPACES_REGION_NAME"),
+                        endpoint_url=f"https://{os.getenv('SPACES_REGION_NAME')}.digitaloceanspaces.com",
+                        aws_access_key_id=os.getenv("SPACES_ACCESS_KEY"),
+                        aws_secret_access_key=os.getenv("SPACES_SECRET_KEY"))
 
 def downloader(player_json: json, count: int, username: str):
     videoId = player_json['videoDetails']['videoId']
@@ -97,17 +109,20 @@ try:
                             'reelPlayerHeaderRenderer']['channelTitleText']['runs'][0]['text']
                         videoID = jsonParsed1['videoDetails']['videoId']
                         
-                        with open(f'./dataset/unparsed_json/{videoID}-player.json', 'w', encoding='utf-8') as f:
-                            f.write(body)
-                        with open(f'./dataset/unparsed_json/{videoID}-reel.json', 'w', encoding='utf-8') as f:
-                            f.write(body)
-                        # if not redisClient.sismember('unique_youtube_video_ids', videoID): 
-                        #     with open(f'./dataset/unparsed_json/{videoID}-player.json', 'w', encoding='utf-8') as f:
-                        #         f.write(body)
-                        #     with open(f'./dataset/unparsed_json/{videoID}-reel.json', 'w', encoding='utf-8') as f:
-                        #         f.write(body)
-                        #     redisClient.rpush('youtube_shorts', f"{videoID}")
-                        #     redisClient.sadd('unique_youtube_video_ids', videoID)
+                        if not redisClient.sismember('unique_youtube_video_ids', videoID): 
+                            try: 
+                                # client.upload_file(f'youtube_files/dataset/unparsed_json/{videoID}-player.json', os.getenv('SPACES_SPACE_NAME'), f'youtube_files/dataset/unparsed_json/{videoID}-player.json')
+                                client.put_object(Bucket=os.getenv('SPACES_SPACE_NAME'), Key=f'youtube_files/dataset/unparsed_json/{videoID}-player.json', Body=body, ContentType='application/json')
+                                client.put_object(Bucket=os.getenv('SPACES_SPACE_NAME'), Key=f'youtube_files/dataset/unparsed_json/{videoID}-reel.json', Body=body, ContentType='application/json')
+                                # with open(f'./dataset/unparsed_json/{videoID}-player.json', 'w', encoding='utf-8') as f:
+                                #     f.write(body)
+                                # with open(f'./dataset/unparsed_json/{videoID}-reel.json', 'w', encoding='utf-8') as f:
+                                #     f.write(body)
+                                redisClient.rpush('youtube_shorts', f"{videoID}")
+                                redisClient.sadd('unique_youtube_video_ids', videoID)
+                            except Exception as e:
+                                print(f"An error occurred while downloading: {str(e)}")
+                                pass                          
 
                     except: 
                         pass

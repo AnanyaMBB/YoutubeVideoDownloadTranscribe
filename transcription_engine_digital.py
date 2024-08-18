@@ -320,6 +320,7 @@ class TranscriptionEngine:
 
     def readAudioFileFromSpace(self, space_file_name):
         try: 
+            print("TRYING TO READ FILE")
             response = self.client.get_object(Bucket=os.getenv("SPACES_SPACE_NAME"), Key=space_file_name)
             file_content = response['Body'].read()
             return file_content

@@ -80,7 +80,7 @@ class TranscriptionEngine:
 
                 # Setup Redis Client connection
                 self.redisClient = redis.Redis(
-                    host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"), db=0
+                    host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"), username=os.getenv('REDIS_USERNAME'), password=os.getenv('REDIS_PASSWORD'), db=0
                 )
 
                 # Check if Weaviate is ready
@@ -313,6 +313,7 @@ class TranscriptionEngine:
         try: 
             response = self.client.get_object(Bucket=os.getenv("SPACES_SPACE_NAME"), Key=space_file_name)
             file_content = response['Body'].read().decode('utf-8')
+            print("FINISHED GRABBING FILE")
             return file_content
         except Exception as e:
             print(f"An error occurred reading from spaces: {e}")

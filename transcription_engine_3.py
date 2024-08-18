@@ -35,7 +35,7 @@ class TranscriptionEngine:
 
         # Setup Redis Client connection
         self.redisClient = redis.Redis(
-            host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"), db=0
+            host=os.getenv("REDIS_HOST"), port=os.getenv("REDIS_PORT"), username=os.getenv('REDIS_USERNAME'), password=os.getenv('REDIS_PASSWORD'), db=0
         )
 
         try:

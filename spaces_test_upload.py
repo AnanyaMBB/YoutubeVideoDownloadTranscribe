@@ -2,10 +2,10 @@ import boto3
 from botocore.client import Config
 
 # Your Spaces credentials
-access_key = 'DO00NZR2HT4JRVM9MGPQ'
-secret_key = 'wT0fhEAu2AzA8/+9acqiMP8KY/nlPzcmDHtRdr09HhQ'
-space_name = 'marketingos'
-region_name = 'nyc3'  # e.g., nyc3
+access_key = ''
+secret_key = ''
+space_name = ''
+region_name = ''  # e.g., nyc3
 
 # Initialize a session using your credentials
 session = boto3.session.Session()

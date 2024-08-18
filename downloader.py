@@ -11,7 +11,7 @@ from botocore.client import Config
 
 load_dotenv()
 directory = os.getcwd()
-redisClient = redis.Redis(host="localhost", port=6379, db=0)
+redisClient = redis.Redis(host=os.getenv('REDIS_HOST'), port=os.getenv('REDIS_PORT'), username=os.getenv('REDIS_USERNAME'), password=os.getenv('REDIS_PASSWORD'), db=0)
 session = boto3.session.Session()
 client = session.client('s3',
                         region_name=os.getenv("SPACES_REGION_NAME"),
@@ -19,6 +19,7 @@ client = session.client('s3',
                         aws_access_key_id=os.getenv("SPACES_ACCESS_KEY"),
                         aws_secret_access_key=os.getenv("SPACES_SECRET_KEY"))
 
+proxy = f'{os.getenv('PROXY_USERNAME')}:{os.getenv('PROXY_PASSWORD')}@{os.getenv('PROXY_HOST')}:{os.getenv('PROXY_PORT')}'
 class DownloadShorts:
     def getVideoIds(self, batch_size=10):
         videoIds = []
@@ -48,6 +49,7 @@ class DownloadShorts:
             "outtmpl": f"./dataset/audio_files/{videoId}.%(ext)s",
             "verbose": True,
             "ignoreerrors": True,
+            'proxy': f'http://{proxy}',
         }
 
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

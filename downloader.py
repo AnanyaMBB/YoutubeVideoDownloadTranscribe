@@ -19,7 +19,7 @@ client = session.client('s3',
                         aws_access_key_id=os.getenv("SPACES_ACCESS_KEY"),
                         aws_secret_access_key=os.getenv("SPACES_SECRET_KEY"))
 
-proxy = f'{os.getenv('PROXY_USERNAME')}:{os.getenv('PROXY_PASSWORD')}@{os.getenv('PROXY_HOST')}:{os.getenv('PROXY_PORT')}'
+proxy = f"{os.getenv('PROXY_USERNAME')}:{os.getenv('PROXY_PASSWORD')}@{os.getenv('PROXY_HOST')}:{os.getenv('PROXY_PORT')}"
 class DownloadShorts:
     def getVideoIds(self, batch_size=10):
         videoIds = []

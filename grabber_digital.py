@@ -24,15 +24,15 @@ chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 
 # Setting up the proxy for Oxylabs
-proxy = f'{os.getenv('PROXY_USERNAME')}:{os.getenv('PROXY_PASSWORD')}@{os.getenv('PROXY_HOST')}:{os.getenv('PROXY_PORT')}'
+# proxy = f"{os.getenv('PROXY_USERNAME')}:{os.getenv('PROXY_PASSWORD')}@{os.getenv('PROXY_HOST')}:{os.getenv('PROXY_PORT')}"
 
-seleniumwire_options = {
-    "proxy": {
-        "http": f"http://{proxy}",
-        "https": f"https://{proxy}",
-        "no_proxy": "localhost,127.0.0.1",  # Bypass the proxy for local addresses
-    }
-}
+# seleniumwire_options = {
+#     "proxy": {
+#         "http": f"http://{proxy}",
+#         "https": f"https://{proxy}",
+#         "no_proxy": "localhost,127.0.0.1",  # Bypass the proxy for local addresses
+#     }
+# }
 
 directory = os.getcwd()
 redisClient = redis.Redis(
@@ -42,6 +42,7 @@ redisClient = redis.Redis(
     password=os.getenv("REDIS_PASSWORD"),
     db=0,
 )
+print(f"REDIS HOST: {os.getenv('REDIS_HOST')}")
 session = boto3.session.Session()
 client = session.client(
     "s3",
@@ -86,7 +87,7 @@ def downloader(player_json: json, count: int, username: str):
 
 url = "https://www.youtube.com/shorts"
 driver = webdriver.Chrome(
-    options=chrome_options, seleniumwire_options=seleniumwire_options
+    options=chrome_options
 )
 
 
@@ -94,9 +95,10 @@ try:
     driver.get(url)
     actions = ActionChains(driver)
     for i in range(100000):
-        time.sleep(2)
+        time.sleep(4)
         for request in driver.requests:
             if request.response is not None:
+                # print(request.url)
                 if "https://www.youtube.com/youtubei/v1/player" in request.url:
                     body = decode(
                         request.response.body,

@@ -66,7 +66,7 @@ class TranscriptionEngine:
 
     def transcribeAndStore(self, videoId):
         max_retries = 5
-        retry_delay = 10  # seconds
+        retry_delay = 1  # seconds
         retry_count = 0
 
         while retry_count < max_retries:

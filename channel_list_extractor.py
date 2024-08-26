@@ -48,7 +48,8 @@ class Extractor:
                         writer = csv.writer(csvfile)
                         writer.writerow([channelId, channelUrl, subscriberCount])
 
-                    if not redisClient.sismember('channel_list', channelId):
+                    # if not redisClient.sismember('channel_list', channelId):
+                    if not redisClient.zscore('channel_download_queue', channelId):
                         # redisClient.rpush('channel_download_queue', channelId)
                         redisClient.sadd('channel_list', channelId)
                         redisClient.zadd('channel_download_queue', {channelId: subscriberCount})  

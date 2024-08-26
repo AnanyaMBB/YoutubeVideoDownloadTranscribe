@@ -25,7 +25,22 @@ if script_tag:
     data_dict = json.loads(json_text)
 
     # Now `data_dict` holds the parsed dictionary, and you can access its values
-    print(data_dict)
+    likeCount = data_dict['overlay']['reelPlayerOverlayRenderer']['likeButton']['likeButtonRenderer']['likeCount']
+    commentCount= data_dict['overlay']['reelPlayerOverlayRenderer']['viewCommentsButton']['buttonRenderer']['text']['simpleText']
+    title = data_dict['engagementPanels'][1]['engagementPanelSectionListRenderer']['content']['structuredDescriptionContentRenderer']['items'][0]['videoDescriptionHeaderRenderer']['title']['runs'][0]['text']
+    # description = data_dict['engagementPanels'][1]['engagementPanelSectionListRenderer']['content']['structuredDescriptionContentRenderer']['items'][1]['expandableVideoDescriptionBodyRenderer']['descriptionBodyText']['runs']
+    description = ""
+    for text in data_dict['engagementPanels'][1]['engagementPanelSectionListRenderer']['content']['structuredDescriptionContentRenderer']['items'][1]['expandableVideoDescriptionBodyRenderer']['descriptionBodyText']['runs']:
+        description += text['text']
+    views = int(data_dict['engagementPanels'][1]['engagementPanelSectionListRenderer']['content']['structuredDescriptionContentRenderer']['items'][0]['videoDescriptionHeaderRenderer']['views']['simpleText'].split(' ')[0].replace(',', ''))
+    publishDate = data_dict['engagementPanels'][1]['engagementPanelSectionListRenderer']['content']['structuredDescriptionContentRenderer']['items'][0]['videoDescriptionHeaderRenderer']['publishDate']['simpleText']
+    print(likeCount)
+    print(commentCount)
+    print(title)
+    print(description)
+    print(views)
+    print(data_dict)#['videoDescriptionHeaderRenderer'])
+    # print(data_dict['overlay']['reelPlayerOverlayRenderer']['menu']['menuRenderer']['items'])
 
 else:
     print("Script tag containing 'ytInitialData' not found.")

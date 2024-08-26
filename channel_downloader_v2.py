@@ -63,6 +63,7 @@ class DownloadShorts:
             "download_archive": "downloaded_shorts.txt",
             "ignoreerrors": True,
             "force_generic_extractor": False,
+            "extract_flat": True,
             "proxy": f"http://{proxy}",
         }
 
@@ -70,49 +71,22 @@ class DownloadShorts:
             channel_url = f"https://www.youtube.com/channel/{channelId[0].decode('utf-8')}"
             shorts_url = f"{channel_url}/shorts"
             result = ydl.extract_info(shorts_url, download=False)
-            if result: 
-                try: 
-                    if "entries" in result:
-                        for entry in result["entries"]:
-                            # print(entry)
-                            video_data = {
-                                "channel_id": channelId[0].decode("utf-8"),
-                                "id": entry["id"],
-                                "username": entry.get("uploader_id", "N/A"),
-                                "title": entry["title"],
-                                "description": entry.get("description", "N/A"),
-                                "view_count": entry.get("view_count", "N/A"),
-                                "like_count": entry.get("like_count", "N/A"),
-                                "comment_count": entry.get("comment_count", "N/A"),
-                            }
+            if 'entries' in result:
+                for entry in result["entries"]:
+                    ydl.download([entry['url']])    
 
-                            ydl.download([entry["webpage_url"]])
-                            # print("VIDEO DATA: ", video_data)
-                            with open(f'./dataset/channel_shorts_json/{video_data["id"]}.json', 'w') as json_file: 
-                                json.dump(video_data, json_file, indent=4)
-                                print(f"Successfully downloaded the YouTube Short: {entry['webpage_url']}")
+                    self.uploadToSpaces(
+                        f"./dataset/channel_shorts/{entry['id']}.mp3",
+                        f"youtube_files/dataset/channel_shorts/{entry['id']}.mp3",
+                    )
 
-                            self.uploadToSpaces(
-                                f"./dataset/channel_shorts/{video_data['id']}.mp3",
-                                f"youtube_files/dataset/channel_shorts/{video_data['id']}.mp3",
-                            )
+                    if os.path.exists(f"./dataset/channel_shorts/{entry['id']}.mp3"):
+                        os.remove(f"./dataset/channel_shorts/{entry['id']}.mp3")
 
-                            self.uploadToSpaces(
-                                f"./dataset/channel_shorts_json/{video_data['id']}.json",
-                                f"youtube_files/dataset/channel_shorts_json/{video_data['id']}.json",
-                            )
 
-                            if os.path.exists(f"./dataset/channel_shorts/{video_data['id']}.mp3"):
-                                os.remove(f"./dataset/channel_shorts/{video_data['id']}.mp3")
-
-                            if os.path.exists(f"./dataset/channel_shorts_json/{video_data['id']}.json"):
-                                os.remove(f"./dataset/channel_shorts_json/{video_data['id']}.json")
-
-                            redisClient.zadd('channel_downloaded', {video_data['id']: channelId[1]}) 
-                            redisClient.zadd('channel_video_data_download_queue', {video_data['id']: channelId[1]}) 
-                            redisClient.sadd('channel_downloaded_videos', video_data['id'])
-                except Exception as e:
-                    pass
+                    redisClient.zadd('channel_downloaded', {entry['id']: channelId[1]}) 
+                    redisClient.zadd('channel_video_data_download_queue', {entry['id']: channelId[1]}) 
+                    redisClient.sadd('channel_downloaded_videos', entry['id'])
 
 
     # def downloadShorts(self, videoId):
@@ -170,6 +144,11 @@ if __name__ == "__main__":
     downloadShorts = DownloadShorts()
     num_processes = cpu_count()
 
+    # channelIds = downloadShorts.getChannelIds()
+
+    # if channelIds: 
+    #     for channelId in channelIds:
+    #         downloadShorts.downloadShorts(channelId)
     with Pool(processes=num_processes) as pool:
         while True:
             channelIds = downloadShorts.getChannelIds()

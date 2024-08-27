@@ -87,9 +87,9 @@ class TranscriptionEngine:
 
                 # Check if Weaviate is ready
                 if self.weaviateClient.is_ready():
-                    transcriptionResult = self.transcribe(videoId) 
+                    transcriptionResult, language = self.transcribe(videoId) 
                     videoData = self.getVideoData(videoId)
-                    self.add_to_weaviate(transcriptionResult, videoData)
+                    self.add_to_weaviate(transcriptionResult, videoData, language)
 
                     # Clean up files
                     if os.path.exists(f"./dataset/audio_for_transcription/{videoId}.mp3"):
@@ -157,6 +157,13 @@ class TranscriptionEngine:
                         index_filterable=True,
                     ),
                     wvc.config.Property(
+                        name="subscriber_count",
+                        data_type=wvc.config.DataType.INT,
+                        vectorize_property_name=False,
+                        skip_vectorization=True,
+                        index_filterable=True,
+                    ),
+                    wvc.config.Property(
                         name="views_count",
                         data_type=wvc.config.DataType.INT,
                         vectorize_property_name=False,
@@ -199,6 +206,13 @@ class TranscriptionEngine:
                         data_type=wvc.config.DataType.TEXT,
                         tokenization=wvc.config.Tokenization.LOWERCASE,
                     ),
+                    wvc.config.Property(
+                        name="language",
+                        data_type=wvc.config.DataType.TEXT,
+                        vectorize_property_name=False,
+                        skip_vectorization=True,
+                        index_filterable=True,
+                    ),
                 ],
                 vector_index_config=wvc.config.Configure.VectorIndex.hnsw(
                     distance_metric=wvc.config.VectorDistances.COSINE,
@@ -217,21 +231,25 @@ class TranscriptionEngine:
         self,
         transcription,
         video_data,
+        language="en",
     ):
         print("VIDEO DATA IN WEAVIATE", video_data)
+        print("COMMENT COUNT: ", video_data["comment_count"])
         try:
             self.weaviateClient.collections.get("ChannelShortsTranscript").data.insert(
                 properties={
                     "media_id": video_data["id"],
                     "channel_id": video_data["channel_id"],
-                    "username": video_data["username"],
-                    "views_count": video_data["view_count"],
+                    "username": video_data.get("username", None),
+                    "subscriber_count": int(video_data["subscriber_count"]),
+                    "views_count": int(video_data["view_count"]),
                     "likes_count": video_data["like_count"],
-                    "comments_count": video_data["comment_count"],
+                    "comments_count": int(video_data["comment_count"]),
                     "audio_id": video_data.get("audio_id", None),
                     "caption": video_data["title"],
                     "transcript": transcription,
                     "description": video_data["description"],
+                    "language": language,
                 },
             )
         except Exception as e:
@@ -240,7 +258,7 @@ class TranscriptionEngine:
     def transcribe(self, videoId): 
         self.client.download_file(os.getenv("SPACES_SPACE_NAME"), f"youtube_files/dataset/channel_shorts/{videoId}.mp3", f"./dataset/audio_for_transcription/{videoId}.mp3")
         result = self.transcriptionModel.transcribe(f'./dataset/audio_for_transcription/{videoId}.mp3')
-        return result["text"]
+        return (result["text"], result["language"])
 
     def getVideoData(self, videoId):
         file = self.readFileFromSpace(f"youtube_files/dataset/channel_shorts_json/{videoId}.json")

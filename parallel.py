@@ -9,7 +9,7 @@ import os
 import json
 import time
 from dotenv import load_dotenv
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 import boto3
 from botocore.client import Config
 import io
@@ -17,14 +17,16 @@ import io
 
 load_dotenv()
 
-
 class TranscriptionEngine:
-    def __init__(self):
+    def __init__(self, gpu_id):
+        # Set the specific GPU for this process
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+
         # Load the transcription model from Whisper
         if torch.cuda.is_available():
-            print("++CUDA is available")
+            print(f"++CUDA is available on GPU {gpu_id}")
         else:
-            print("--CUDA is not available")
+            print(f"--CUDA is not available on GPU {gpu_id}")
         self.transcriptionModel = whisper.load_model(
             "small.en", device="cuda" if torch.cuda.is_available() else "cpu"
         )
@@ -85,15 +87,13 @@ class TranscriptionEngine:
 
                 # Check if Weaviate is ready
                 if self.weaviateClient.is_ready():
-                    transcriptionResult = self.transcribe(videoId) 
+                    transcriptionResult, language = self.transcribe(videoId) 
                     videoData = self.getVideoData(videoId)
-                    self.add_to_weaviate(transcriptionResult, videoData)
+                    self.add_to_weaviate(transcriptionResult, videoData, language)
 
                     # Clean up files
                     if os.path.exists(f"./dataset/audio_for_transcription/{videoId}.mp3"):
                         os.remove(f"./dataset/audio_for_transcription/{videoId}.mp3")
-                    # if os.path.exists(f"./dataset/unparsed_json/{videoId}-reel.json"):
-                    #     os.remove(f"./dataset/unparsed_json/{videoId}-reel.json")
                     
                     print("Transcription and storage complete", videoId)
                     break  # Exit the retry loop after successful operation
@@ -114,11 +114,10 @@ class TranscriptionEngine:
             print(f"Failed to transcribe and store after {max_retries} retries.")
 
     def getFilePath(self):
-        # videoId = self.redisClient.lpop("downloaded_youtube_shorts")
-        videoId, subscriberCount = self.redisClient.zrevrange(
-                "channel_downloaded", 0, 0, withscores=True
+        videoId, subscriberCount = self.redisClient.zpopmax(
+                "channel_downloaded"
             )[0]
-        self.redisClient.zrem("channel_downloaded", videoId)
+#        self.redisClient.zrem("channel_downloaded", videoId)
 
         if videoId:
             videoId = videoId.decode("utf-8")
@@ -153,6 +152,13 @@ class TranscriptionEngine:
                     wvc.config.Property(
                         name="username",
                         data_type=wvc.config.DataType.TEXT,
+                        vectorize_property_name=False,
+                        skip_vectorization=True,
+                        index_filterable=True,
+                    ),
+                    wvc.config.Property(
+                        name="subscriber_count",
+                        data_type=wvc.config.DataType.INT,
                         vectorize_property_name=False,
                         skip_vectorization=True,
                         index_filterable=True,
@@ -200,6 +206,13 @@ class TranscriptionEngine:
                         data_type=wvc.config.DataType.TEXT,
                         tokenization=wvc.config.Tokenization.LOWERCASE,
                     ),
+                    wvc.config.Property(
+                        name="language",
+                        data_type=wvc.config.DataType.TEXT,
+                        vectorize_property_name=False,
+                        skip_vectorization=True,
+                        index_filterable=True,
+                    ),
                 ],
                 vector_index_config=wvc.config.Configure.VectorIndex.hnsw(
                     distance_metric=wvc.config.VectorDistances.COSINE,
@@ -218,21 +231,25 @@ class TranscriptionEngine:
         self,
         transcription,
         video_data,
+        language="en",
     ):
         print("VIDEO DATA IN WEAVIATE", video_data)
+        print("COMMENT COUNT: ", video_data["comment_count"])
         try:
             self.weaviateClient.collections.get("ChannelShortsTranscript").data.insert(
                 properties={
                     "media_id": video_data["id"],
                     "channel_id": video_data["channel_id"],
-                    "username": video_data["username"],
-                    "views_count": video_data["view_count"],
+                    "username": video_data.get("username", video_data.get("channel_id", None)),
+                    "subscriber_count": int(video_data.get("subscriber", -1)),
+                    "views_count": int(video_data["view_count"]),
                     "likes_count": video_data["like_count"],
-                    "comments_count": video_data["comment_count"],
+                    "comments_count": int(str(video_data["comment_count"]).split(",", "")) if video_data["comment_count"] != "Disabled" and video_data["comment_count"] != None else "0",
                     "audio_id": video_data.get("audio_id", None),
                     "caption": video_data["title"],
                     "transcript": transcription,
                     "description": video_data["description"],
+                    "language": language,
                 },
             )
         except Exception as e:
@@ -241,10 +258,7 @@ class TranscriptionEngine:
     def transcribe(self, videoId): 
         self.client.download_file(os.getenv("SPACES_SPACE_NAME"), f"youtube_files/dataset/channel_shorts/{videoId}.mp3", f"./dataset/audio_for_transcription/{videoId}.mp3")
         result = self.transcriptionModel.transcribe(f'./dataset/audio_for_transcription/{videoId}.mp3')
-        print("*"*20)
-        print(result)
-        print("*"*20)
-        return result["text"]
+        return (result["text"], result["language"])
 
     def getVideoData(self, videoId):
         file = self.readFileFromSpace(f"youtube_files/dataset/channel_shorts_json/{videoId}.json")
@@ -253,16 +267,6 @@ class TranscriptionEngine:
         print("Video data retrieved")
         print(data)
         return data
-
-        # {
-        #     "media_id": media_id,
-        #     "username": username,
-        #     "likes_count": likes_count,
-        #     "comments_count": comments_count,
-        #     "audio_id": audio_id,
-        #     "caption": caption,
-        #     "description": description,
-        # }
     
     def readFileFromSpace(self, space_file_name):
         try: 
@@ -283,16 +287,21 @@ class TranscriptionEngine:
             print(f"An error occurred reading from spaces: {e}")
 
 
-
-if __name__ == "__main__":
-    engine = TranscriptionEngine()
-
+def run_on_gpu(gpu_id):
+    engine = TranscriptionEngine(gpu_id)
     while True:
         filePath = engine.getFilePath()
-        print("FILE PATH", filePath)
+        print(f"GPU {gpu_id} processing file: {filePath}")
         if filePath:
             engine.transcribeAndStore(filePath)
-
         else:
-            print("No files to transcribe")
+            print(f"No files to transcribe on GPU {gpu_id}")
             time.sleep(5)
+
+
+if __name__ == "__main__":
+    gpu_ids = [0, 1, 2, 3]  # Assuming you have 4 GPUs
+
+    # Using a pool of workers to parallelize across GPUs
+    with Pool(len(gpu_ids)) as p:
+        p.map(run_on_gpu, gpu_ids)

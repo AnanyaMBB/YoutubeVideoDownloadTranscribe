@@ -34,8 +34,8 @@ class DownloadShorts:
     def getChannelIds(self, batch_size=10):
         channelIds = []
         for _ in range(batch_size):
-            channel = redisClient.zrevrange(
-                "channel_download_queue", 0, 0, withscores=True
+            channel = redisClient.zpopmax(
+                "channel_download_queue"
             )
             channelId, subscriberCount = channel[0]
             redisClient.zrem("channel_download_queue", channelId)

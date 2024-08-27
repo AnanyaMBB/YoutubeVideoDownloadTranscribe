@@ -96,6 +96,7 @@ class TranscriptionEngine:
                         os.remove(f"./dataset/audio_for_transcription/{videoId}.mp3")
                     
                     print("Transcription and storage complete", videoId)
+                    self.redisClient.sadd("downloaded_transcribed_videos", videoId)
                     break  # Exit the retry loop after successful operation
                 else:
                     print("Weaviate is not ready")
